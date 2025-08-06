@@ -49,9 +49,9 @@ class CarThrottleEnv(gym.Env):
         # Small penalty for large throttle changes (encourage smooth control)
         reward -= 0.1 * abs(throttle)
         
-        # Check termination conditions
-        terminated = False
-        truncated = False
+       
+        terminated = False # reached destination
+        truncated = False # reached max steps limit, but not the destination
         
         if self.route_distance <= 0:
             terminated = True
