@@ -41,7 +41,7 @@ class Actor(nn.Module):
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
         x = torch.tanh(self.fc3(x))  # Output in [-1, 1]
-        return x * self.max_action # Multiplies the output by max_action so actions fit the allowed range
+        return x * self.max_action # pretty much useless
 
 class Critic(nn.Module):
     # This is the value network that estimates the Q-value of a state-action pair.
@@ -123,13 +123,13 @@ class TD3:
         self.actor = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_target = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_target.load_state_dict(self.actor.state_dict())
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-3)  # Increased learning rate
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-3)  
         
         # Initialize critic networks
         self.critic = Critic(state_dim, action_dim).to(self.device)
         self.critic_target = Critic(state_dim, action_dim).to(self.device)
         self.critic_target.load_state_dict(self.critic.state_dict())
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)  # Increased learning rate
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)  
         
         # TD3 hyperparameters
         self.max_action = max_action
