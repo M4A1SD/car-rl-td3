@@ -40,8 +40,10 @@ class Actor(nn.Module):
         # 3 layers of neural network
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
-        x = torch.tanh(self.fc3(x))  # Output in [-1, 1]
-        return x * self.max_action # pretty much useless
+        x = torch.tanh(self.fc3(x))  # [-1, 1]
+        # Scale to env action range [-max_action, max_action]
+        x = x * self.max_action
+        return x 
 
 class Critic(nn.Module):
     # This is the value network that estimates the Q-value of a state-action pair.

@@ -11,6 +11,9 @@ def plot_speed_throttle_trajectory(model_name="td3_final", num_episodes=3):
     # Setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = CarThrottleEnv()
+    # Ensure episode can run to the end of the 6km route (avoid early truncation)
+    steps_needed = int(np.ceil(env.initial_route_distance / (max(1.0, env.target_speed) * env.dt))) + 200
+    env.max_steps = max(env.max_steps, steps_needed)
     
     # Load model
     state_dim = env.observation_space.shape[0]
@@ -127,7 +130,7 @@ def plot_speed_throttle_trajectory(model_name="td3_final", num_episodes=3):
     axes[1, 0].grid(True, alpha=0.3)
     plt.colorbar(scatter, ax=axes[1, 0], label='Time Progress')
     
-    # Plot 4: Combined time series (dual y-axis)
+    # Plot 4: Combined time series (dual y-axis) with slope overlay
     ax1 = axes[1, 1]
     ax2 = ax1.twinx()
     
@@ -136,6 +139,7 @@ def plot_speed_throttle_trajectory(model_name="td3_final", num_episodes=3):
     speeds = [state[0]]
     throttles = []
     times = [0]
+    slopes = []
     
     step = 0
     while True:
@@ -145,6 +149,8 @@ def plot_speed_throttle_trajectory(model_name="td3_final", num_episodes=3):
         step += 1
         speeds.append(next_state[0])
         throttles.append(action[0])
+        # current slope (tanh) from observation index 1
+        slopes.append(next_state[1])
         times.append(step * env.dt)
         
         state = next_state
@@ -162,12 +168,14 @@ def plot_speed_throttle_trajectory(model_name="td3_final", num_episodes=3):
     
     # Plot throttle on right axis
     line2 = ax2.plot(times[:-1], throttles, 'r-', linewidth=2, label='Throttle')
+    # Overlay slope (tanh) on same right axis for correlation with throttle
+    line3 = ax2.plot(times[:-1], slopes, color='green', linestyle='--', linewidth=1.5, label='Slope (tanh)')
     ax2.axhline(y=0, color='black', linestyle='--', alpha=0.7)
     ax2.set_ylabel('Throttle Action', color='r')
     ax2.tick_params(axis='y', labelcolor='r')
     
     # Combined legend
-    lines = line1 + line2
+    lines = line1 + line2 + line3
     labels = [l.get_label() for l in lines]
     ax1.legend(lines, labels, loc='upper right')
     
@@ -198,6 +206,9 @@ def plot_single_episode_detailed(model_name="td3_final"):
     # Setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     env = CarThrottleEnv()
+    # Ensure episode can run to the end of the 6km route (avoid early truncation)
+    steps_needed = int(np.ceil(env.initial_route_distance / (max(1.0, env.target_speed) * env.dt))) + 200
+    env.max_steps = max(env.max_steps, steps_needed)
     
     # Load model
     state_dim = env.observation_space.shape[0]
@@ -213,28 +224,46 @@ def plot_single_episode_detailed(model_name="td3_final"):
     throttles = []
     rewards = []
     times = [0]
+    positions_m = [0.0]
+    slopes = []
+    elevations = []
+    fuel_inst = []
+    fuel_cum = [0.0]
     
     step = 0
     total_reward = 0
     
+    prev_fuel = 0.0
     while True:
         action = agent.select_action(np.array(state), add_noise=False)
         next_state, reward, terminated, truncated, _ = env.step(action)
-        
+
         step += 1
         speeds.append(next_state[0])
         throttles.append(action[0])
         rewards.append(reward)
         times.append(step * env.dt)
         total_reward += reward
-        
+
+        # Track distance, slope, elevation
+        positions_m.append(env.s)
+        idx = env._index_at_s(env.s)
+        slopes.append(env.road_slope[idx])
+        elevations.append(env.y_new[idx])
+
+        # Fuel per step and cumulative
+        df = env.fuel_usage - prev_fuel
+        fuel_inst.append(df)
+        fuel_cum.append(env.fuel_usage)
+        prev_fuel = env.fuel_usage
+
         state = next_state
-        
+
         if terminated or truncated:
             break
     
     # Create detailed plot
-    fig, axes = plt.subplots(3, 1, figsize=(14, 12))
+    fig, axes = plt.subplots(4, 1, figsize=(14, 16))
     fig.suptitle(f'Detailed Episode Analysis - {model_name}', fontsize=16)
     
     # Speed plot
@@ -264,6 +293,24 @@ def plot_single_episode_detailed(model_name="td3_final"):
     axes[2].set_title(f'Rewards (Total: {total_reward:.2f})')
     axes[2].grid(True, alpha=0.3)
     axes[2].legend()
+
+    # Elevation and slope vs distance
+    ax_elev = axes[3]
+    ax_slope = ax_elev.twinx()
+    # Full route overlays
+    ax_elev.plot(env.x_new, env.y_new, color='sienna', linewidth=1, alpha=0.3, label='Elevation (full)')
+    ax_slope.plot(env.x_new, env.road_slope, color='purple', linestyle=':', linewidth=1, alpha=0.3, label='Slope (full, tanh)')
+    # Trajectory overlays
+    ax_elev.plot(positions_m, [elevations[0]] + elevations, color='sienna', linewidth=2, label='Elevation (traj)')
+    ax_slope.plot(positions_m[:-1], slopes, color='purple', linestyle='--', linewidth=1.5, label='Slope (traj, tanh)')
+    ax_elev.set_xlabel('Distance (m)')
+    ax_elev.set_ylabel('Elevation (m)', color='sienna')
+    ax_slope.set_ylabel('Slope (tanh)', color='purple')
+    ax_elev.set_title('Road Elevation and Slope vs Distance')
+    ax_elev.grid(True, alpha=0.3)
+    lines = ax_elev.get_lines() + ax_slope.get_lines()
+    labels = [l.get_label() for l in lines]
+    ax_elev.legend(lines, labels, loc='upper right')
     
     plt.tight_layout()
     
