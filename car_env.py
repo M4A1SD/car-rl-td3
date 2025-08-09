@@ -55,10 +55,16 @@ class CarThrottleEnv(gym.Env):
 
         # Physics/consumption coefficients (simplified)
         self.throttle_accel_coeff = 4.0  # throttle [-1,1] -> accel contribution [-4,4] m/s^2
-        self.slope_accel_scale = 3.0     # slope effect on accel via tanh slope in [-1,1] -> [-3,3]
+        self.slope_accel_scale = 3.8     # slope effect on accel via tanh slope in [-1,1] -> [-3,3]
         self.fuel_rate_base = 0.0
         self.fuel_rate_throttle = 0.015  # fuel per unit positive throttle
         self.fuel_rate_uphill = 0.010    # extra fuel when uphill and throttling
+
+        # Reward shaping weights: prioritize fuel, allow speed flexibility within a margin
+        self.fuel_reward_scale = 1000.0  # scales per-step fuel to comparable magnitude
+        self.speed_margin = 4.0          # you can go up to 15 km/h without consequences haha
+        self.speed_penalty_weight = 10  # penalty per m/s outside margin (small)
+        self.finish_bonus = 4000.0        # encourage finishing the route
 
     def _index_at_s(self, s_m):
         s_clamped = np.clip(s_m, 0.0, self.initial_route_distance)
@@ -95,19 +101,25 @@ class CarThrottleEnv(gym.Env):
 
         # Road-induced accel from current slope
         idx = self._index_at_s(self.s)
-        slope_tanh = self.road_slope[idx]  # [-1,1]
-        external_acc = slope_tanh * self.slope_accel_scale  # [-3,3]
+        slope_tanh = self.road_slope[idx]  # [-1,1], positive = uphill, negative = downhill
+        # Uphill should reduce acceleration; downhill should increase it -> flip sign
+        external_acc = -slope_tanh * self.slope_accel_scale  # [-3,3]
 
-        # Vehicle acceleration
-        accel = throttle * self.throttle_accel_coeff + external_acc  # approx accel range ~[-7, 7]
+        # Vehicle acceleration: engine/brake contribution plus gravity along slope
+        accel = throttle * self.throttle_accel_coeff + external_acc  # approx accel range [-7.8, 7.8]
 
         # Fuel usage (incremental)
         # Only positive throttle burns fuel; more uphill (positive slope_tanh) burns extra
-        pos_throttle = max(0.0, throttle)
+        pos_throttle = max(0.0, throttle) # dont burn fuel when braking
         fuel_rate = self.fuel_rate_base \
                     + self.fuel_rate_throttle * pos_throttle \
                     + self.fuel_rate_uphill * pos_throttle * max(0.0, slope_tanh)
         # fuel_rate = 0.015 * throttle + 0.01 * slope_tanh * throttle
+        # up hill
+        # fuel_rate = throttle ( 0.015 + 0.01 * slope_tanh)
+        # down hill
+        # fuel_rate = throttle ( 0.015 )
+        # fuel_rate  [+- 0.315]
         fuel_used = fuel_rate * self.dt
         self.fuel_usage += fuel_used
 
@@ -120,27 +132,26 @@ class CarThrottleEnv(gym.Env):
         self.s += distance_covered
         self.route_distance = max(0.0, self.initial_route_distance - self.s)
 
-        # Reward: negative fuel used per step + speed-tracking shaping
+        # Reward: strongly penalize fuel, lightly penalize speed only outside a margin
         speed_error = abs(self.speed - self.target_speed)
         reward = 0.0
-        reward -= fuel_used  # fuel minimization (dense, equals terminal total when summed)
-        # Shaping for speed tracking
+        reward -= self.fuel_reward_scale * fuel_used
+        excess = max(0.0, speed_error - self.speed_margin)
+        # 2 levels of excess
         if speed_error < 1.0: # [24,26]
-            reward += 1.0 - speed_error           # [0,1]
+            reward -= self.speed_penalty_weight * excess * 0.1 
         elif speed_error < 3.0: # [22,28]
-            reward += 0.3 - 0.1 * speed_error     # [0,0.3]
+            reward -= self.speed_penalty_weight * excess * 0.4
         else: # [0,22] [28,40]
-            reward -= 0.1 * (speed_error - 3.0)   # [-2.2,0]
+            reward -= self.speed_penalty_weight * excess 
 
         # Termination
         terminated = False
         truncated = False
         if self.route_distance <= 0.0:
             terminated = True
-            # Bonus if finish near target speed
-            if speed_error < 2.0:
-                reward += 2.0
-            # No extra terminal fuel term needed because we already summed -fuel_used each step
+            # Bonus for finishing the route
+            reward += self.finish_bonus
         elif self.step_count >= self.max_steps:
             truncated = True
 
