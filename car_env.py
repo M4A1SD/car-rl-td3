@@ -58,7 +58,7 @@ class CarThrottleEnv(gym.Env):
         self.slope_accel_scale = 3.8     # slope effect on accel via tanh slope in [-1,1] -> [-3,3]
         self.fuel_rate_base = 0.0
         self.fuel_rate_throttle = 0.015  # fuel per unit positive throttle
-        self.fuel_rate_uphill = 0.010    # extra fuel when uphill and throttling
+        self.fuel_rate_uphill = 0.012 #was 0.010    # extra fuel when uphill and throttling
 
         # Reward shaping weights: prioritize fuel, allow speed flexibility within a margin
         self.fuel_reward_scale = 1000.0  # scales per-step fuel to comparable magnitude

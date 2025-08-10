@@ -43,7 +43,7 @@ def main():
     max_action = float(env.action_space.high[0])
     
     # Training parameters
-    max_episodes = 55
+    max_episodes = 200
     # Allow enough steps to finish the ~6km route at dt=0.1s
     # At 25 m/s this is ~2400 steps; give extra margin
     max_timesteps = 3000

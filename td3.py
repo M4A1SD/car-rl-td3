@@ -95,8 +95,8 @@ class TD3:
         device=None,
         discount=0.99,
         tau=0.005,
-        policy_noise=0.2,
-        noise_clip=0.5,
+        policy_noise=0.1,
+        noise_clip=0.2,
         policy_freq=2
     ):
         # Use CUDA if available, otherwise fall back to CPU
@@ -148,7 +148,8 @@ class TD3:
         action = self.actor(state).cpu().data.numpy().flatten()
         
         if add_noise:
-            noise = np.random.normal(0, self.max_action * 0.2, size=action.shape)  # Increased exploration noise
+            # Lower exploration noise for smoother actions
+            noise = np.random.normal(0, self.max_action * 0.1, size=action.shape)
             action = action + noise
             action = np.clip(action, -self.max_action, self.max_action)
             
