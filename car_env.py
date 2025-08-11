@@ -66,6 +66,13 @@ class CarThrottleEnv(gym.Env):
         self.speed_penalty_weight = 10  # penalty per m/s outside margin (small)
         self.finish_bonus = 4000.0        # encourage finishing the route
 
+        # Action smoothing and additional reward shaping for realism/efficiency
+        # Limit how quickly throttle can change (per second). With dt=0.1 and rate=1.5 -> max step change 0.15
+        self.throttle_rate_limit_per_sec = 1.5
+        self.prev_throttle = 0.0
+        # Penalize rapid throttle changes
+        self.throttle_rate_penalty_weight = 5.0
+
     def _index_at_s(self, s_m):
         s_clamped = np.clip(s_m, 0.0, self.initial_route_distance)
         return int(np.searchsorted(self.x_new, s_clamped, side='left').clip(0, len(self.x_new)-1))
@@ -93,11 +100,15 @@ class CarThrottleEnv(gym.Env):
         self.route_distance = self.initial_route_distance
         self.step_count = 0
         self.fuel_usage = 0.0
+        self.prev_throttle = 0.0
         return self._obs(), {}
 
     def step(self, action):
         self.step_count += 1
-        throttle = float(np.clip(action[0], -1.0, 1.0))
+        raw_throttle = float(np.clip(action[0], -1.0, 1.0))
+        # Rate-limit the throttle to avoid unrealistic rapid pedal swaps
+        max_delta = self.throttle_rate_limit_per_sec * self.dt
+        throttle = float(np.clip(raw_throttle, self.prev_throttle - max_delta, self.prev_throttle + max_delta))
 
         # Road-induced accel from current slope
         idx = self._index_at_s(self.s)
@@ -145,6 +156,11 @@ class CarThrottleEnv(gym.Env):
         else: # [0,22] [28,40]
             reward -= self.speed_penalty_weight * excess 
 
+        # Additional shaping for smoothness and efficiency
+        # Penalize rapid throttle changes (jerk proxy)
+        throttle_delta = throttle - self.prev_throttle
+        reward -= self.throttle_rate_penalty_weight * (throttle_delta ** 2)
+
         # Termination
         terminated = False
         truncated = False
@@ -154,6 +170,9 @@ class CarThrottleEnv(gym.Env):
             reward += self.finish_bonus
         elif self.step_count >= self.max_steps:
             truncated = True
+
+        # Update stored throttle for next step
+        self.prev_throttle = throttle
 
         return self._obs(), float(reward), terminated, truncated, {}
 
