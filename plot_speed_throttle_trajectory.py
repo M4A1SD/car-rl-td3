@@ -127,51 +127,45 @@ def plot_speed_throttle_trajectory(model_name="td3_final", num_episodes=3):
     axes[1, 0].grid(True, alpha=0.3)
     plt.colorbar(scatter, ax=axes[1, 0], label='Time Progress')
     
-    # Plot 4: Combined time series (dual y-axis)
+    # Plot 4: Road elevation and throttle over distance
     ax1 = axes[1, 1]
     ax2 = ax1.twinx()
-    
-    # Use first episode for clarity
+
+    # Road elevation profile
+    road_x = env.road.x
+    road_y = env.road.y
+    line1 = ax1.plot(road_x, road_y, color='tab:blue', linewidth=2, label='Road Elevation')
+    ax1.set_xlabel('Distance along road (m)')
+    ax1.set_ylabel('Elevation (m)', color='tab:blue')
+    ax1.tick_params(axis='y', labelcolor='tab:blue')
+    ax1.grid(True, alpha=0.3)
+
+    # Roll one episode to collect throttle vs distance
     state, _ = env.reset()
-    speeds = [state[0]]
     throttles = []
-    times = [0]
-    
-    step = 0
+    positions = [env.position]
     while True:
         action = agent.select_action(np.array(state), add_noise=False)
         next_state, reward, terminated, truncated, _ = env.step(action)
-        
-        step += 1
-        speeds.append(next_state[0])
         throttles.append(action[0])
-        times.append(step * env.dt)
-        
+        positions.append(env.position)
         state = next_state
-        
         if terminated or truncated:
             break
-    
-    # Plot speed on left axis
-    line1 = ax1.plot(times, speeds, 'b-', linewidth=2, label='Speed')
-    ax1.axhline(y=env.target_speed, color='red', linestyle='--', alpha=0.7)
-    ax1.set_xlabel('Time (seconds)')
-    ax1.set_ylabel('Speed (m/s)', color='b')
-    ax1.tick_params(axis='y', labelcolor='b')
-    ax1.grid(True, alpha=0.3)
-    
-    # Plot throttle on right axis
-    line2 = ax2.plot(times[:-1], throttles, 'r-', linewidth=2, label='Throttle')
+
+    # Plot throttle against traveled distance (right axis)
+    # Use positions[1:] to align with throttle actions taken at each step
+    line2 = ax2.plot(positions[1:], throttles, color='tab:red', linewidth=2, label='Throttle')
     ax2.axhline(y=0, color='black', linestyle='--', alpha=0.7)
-    ax2.set_ylabel('Throttle Action', color='r')
-    ax2.tick_params(axis='y', labelcolor='r')
-    
+    ax2.set_ylabel('Throttle Action', color='tab:red')
+    ax2.tick_params(axis='y', labelcolor='tab:red')
+
     # Combined legend
     lines = line1 + line2
     labels = [l.get_label() for l in lines]
     ax1.legend(lines, labels, loc='upper right')
-    
-    ax1.set_title('Speed and Throttle Over Time')
+
+    ax1.set_title('Road Elevation and Throttle vs Distance')
     
     plt.tight_layout()
     

@@ -123,13 +123,13 @@ class TD3:
         self.actor = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_target = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_target.load_state_dict(self.actor.state_dict())
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-3)  
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=1e-4)  
         
         # Initialize critic networks
         self.critic = Critic(state_dim, action_dim).to(self.device)
         self.critic_target = Critic(state_dim, action_dim).to(self.device)
         self.critic_target.load_state_dict(self.critic.state_dict())
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-3)  
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=1e-4)  
         
         # TD3 hyperparameters
         self.max_action = max_action
@@ -146,7 +146,7 @@ class TD3:
         action = self.actor(state).cpu().data.numpy().flatten()
         
         if add_noise:
-            noise = np.random.normal(0, self.max_action * 0.2, size=action.shape)  # Increased exploration noise
+            noise = np.random.normal(0, self.max_action * 0.1, size=action.shape)  # Increased exploration noise
             action = action + noise
             action = np.clip(action, -self.max_action, self.max_action)
             
@@ -216,9 +216,9 @@ class TD3:
     
     def load(self, filename):
         # Load model with appropriate device mapping
-        self.critic.load_state_dict(torch.load(filename + "_critic", map_location=self.device, weights_only=True))
-        self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer", map_location=self.device, weights_only=True))
-        self.actor.load_state_dict(torch.load(filename + "_actor", map_location=self.device, weights_only=True))
-        self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer", map_location=self.device, weights_only=True))
+        self.critic.load_state_dict(torch.load(filename + "_critic", map_location=self.device))
+        self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer", map_location=self.device))
+        self.actor.load_state_dict(torch.load(filename + "_actor", map_location=self.device))
+        self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer", map_location=self.device))
         self.critic_target = copy.deepcopy(self.critic)
         self.actor_target = copy.deepcopy(self.actor)

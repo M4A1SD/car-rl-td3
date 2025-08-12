@@ -26,12 +26,12 @@ def main():
     max_action = float(env.action_space.high[0])
     
     # Training parameters
-    max_episodes = 150
-    max_timesteps = 500
+    max_episodes = 100
+    max_timesteps = 1000
     batch_size = 256
-    exploration_noise = 0.2  # Increased exploration
-    start_timesteps = 2000  # More random exploration steps
-    save_frequency = 50  # Save models more frequently
+    exploration_noise = 0.2  # Note: policy adds its own noise; this var is informational only
+    start_timesteps = 2500  # More random exploration given large observation size
+    save_frequency = 25  # Save models more frequently
     
     # Initialize agent and replay buffer
     agent = TD3(state_dim, action_dim, max_action, device=device)
@@ -43,6 +43,7 @@ def main():
     
     # Training loop
     episode_rewards = []
+    episode_avg_speeds = []  # Track average speeds for each episode
     total_timesteps = 0
     
     print("Starting training...")
@@ -50,6 +51,7 @@ def main():
     
     for episode in range(1, max_episodes + 1):
         episode_reward = 0
+        episode_speeds = []  # Track speeds for this episode
         state, _ = env.reset()
         
         for t in range(max_timesteps):
@@ -64,6 +66,10 @@ def main():
             # Perform action
             next_state, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
+            
+            # Track speed (first element of state is speed)
+            current_speed = state[0]
+            episode_speeds.append(current_speed)
             
             # Store data in replay buffer
             replay_buffer.add(state, action, reward, next_state, done)
@@ -80,11 +86,19 @@ def main():
         
         episode_rewards.append(episode_reward)
         
+        # Calculate and store average speed for this episode
+        if episode_speeds:
+            avg_speed_episode = np.mean(episode_speeds)
+            episode_avg_speeds.append(avg_speed_episode)
+        else:
+            episode_avg_speeds.append(0.0)
+        
         # Print episode statistics
         if episode % 10 == 0:
             avg_reward = np.mean(episode_rewards[-10:])
+            avg_speed_recent = np.mean(episode_avg_speeds[-10:])
             elapsed_time = time.time() - start_time
-            print(f"Episode: {episode}, Avg. Reward: {avg_reward:.2f}, Time: {elapsed_time:.2f}s")
+            print(f"Episode: {episode}, Avg. Reward: {avg_reward:.2f}, Avg. Speed: {avg_speed_recent:.2f} m/s, Time: {elapsed_time:.2f}s")
             
             # Save model periodically
             if episode % save_frequency == 0:
@@ -93,7 +107,13 @@ def main():
     
     # Save final model
     agent.save("./models/td3_final")
+    
+    # Print final training summary
+    final_avg_reward = np.mean(episode_rewards[-10:]) if len(episode_rewards) >= 10 else np.mean(episode_rewards)
+    final_avg_speed = np.mean(episode_avg_speeds[-10:]) if len(episode_avg_speeds) >= 10 else np.mean(episode_avg_speeds)
     print("Training complete!")
+    print(f"Final 10-episode average reward: {final_avg_reward:.2f}")
+    print(f"Final 10-episode average speed: {final_avg_speed:.2f} m/s (Target: {env.target_speed:.1f} m/s)")
 
 
 if __name__ == "__main__":
