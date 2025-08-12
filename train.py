@@ -26,7 +26,7 @@ def main():
     max_action = float(env.action_space.high[0])
     
     # Training parameters
-    max_episodes = 100
+    max_episodes = 200
     max_timesteps = 1000
     batch_size = 256
     exploration_noise = 0.2  # Note: policy adds its own noise; this var is informational only
