@@ -93,12 +93,14 @@ def main():
         else:
             episode_avg_speeds.append(0.0)
         
+        # Print total fuel used for this episode
+        
         # Print episode statistics
         if episode % 10 == 0:
             avg_reward = np.mean(episode_rewards[-10:])
             avg_speed_recent = np.mean(episode_avg_speeds[-10:])
             elapsed_time = time.time() - start_time
-            print(f"Episode: {episode}, Avg. Reward: {avg_reward:.2f}, Avg. Speed: {avg_speed_recent:.2f} m/s, Time: {elapsed_time:.2f}s")
+            print(f"Episode: {episode}, Avg. Reward: {avg_reward:.2f}, Avg. Speed: {avg_speed_recent:.2f} m/s, Time: {elapsed_time:.2f}s, Total Fuel Used: {env.total_fuel_used:.3f}")
             
             # Save model periodically
             if episode % save_frequency == 0:

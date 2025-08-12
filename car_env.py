@@ -33,7 +33,7 @@ class CarThrottleEnv(gym.Env):
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
 
         # Fuel usage penalty settings (only positive throttle consumes fuel)
-        self.fuel_penalty_coeff = 0.5  # penalty per unit fuel used
+        self.fuel_penalty_coeff = 8  # penalty per unit fuel used
         self.total_fuel_used = 0.0
 
     def reset(self, seed=None, options=None):
@@ -68,21 +68,25 @@ class CarThrottleEnv(gym.Env):
 
         # Reward based on speed tracking
         speed_error = abs(self.speed - self.target_speed)
-        
-        # Base reward for maintaining target speed (higher is better)
-        if speed_error < 1.0:  # Very close to target
-            reward = 10.0 - speed_error
-        elif speed_error < 3.0:  # Reasonably close
-            reward = 5.0 - speed_error  
-        else:  # Far from target
-            reward = -speed_error * 2.0
 
         # Fuel penalty: only positive throttle uses fuel, zero or braking does not
         throttle_pos = max(0.0, float(throttle))
         fuel_used = throttle_pos * self.dt
         self.total_fuel_used += fuel_used
-        # reward -= self.fuel_penalty_coeff * fuel_used
         
+        # Base reward for maintaining target speed (higher is better)
+        if speed_error < 1.0:  # Very close to target
+            reward = 10.0 - speed_error # ~10
+        elif speed_error < 3.0:  # Reasonably close
+            reward = 5.0 - speed_error  # ~5
+        else:  # Far from target
+            reward = -speed_error * 4.0
+
+  
+        # reward -= self.fuel_penalty_coeff * fuel_used
+        # reward -= -0.5 *0.5 * [-1,1] -> [-4,4]
+
+
        
         terminated = False # reached destination
         truncated = False # reached max steps limit, but not the destination
@@ -92,6 +96,8 @@ class CarThrottleEnv(gym.Env):
             # Bonus for completing route near target speed
             if speed_error < 2.0:
                 reward += 50.0
+            # reward -= 10.0 * self.total_fuel_used
+            reward += 1000 * np.exp(-self.total_fuel_used/2)
         elif self.step_count >= self.max_steps:
             truncated = True
 

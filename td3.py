@@ -216,9 +216,9 @@ class TD3:
     
     def load(self, filename):
         # Load model with appropriate device mapping
-        self.critic.load_state_dict(torch.load(filename + "_critic", map_location=self.device))
-        self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer", map_location=self.device))
-        self.actor.load_state_dict(torch.load(filename + "_actor", map_location=self.device))
-        self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer", map_location=self.device))
+        self.critic.load_state_dict(torch.load(filename + "_critic", map_location=self.device, weights_only=True))
+        self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer", map_location=self.device, weights_only=True))
+        self.actor.load_state_dict(torch.load(filename + "_actor", map_location=self.device, weights_only=True))
+        self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer", map_location=self.device, weights_only=True))
         self.critic_target = copy.deepcopy(self.critic)
         self.actor_target = copy.deepcopy(self.actor)
