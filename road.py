@@ -44,7 +44,7 @@ class RoadProfile:
         # Use gradient to get slope with same length as x
         self.slope = np.gradient(self.y, self.x)
         # Map slope to external acceleration in [-slope_gain, slope_gain]
-        self.slope_gain = 3.0
+        self.slope_gain = 5.0
 
 
 
