@@ -97,35 +97,35 @@ def plot_speed_throttle_trajectory(model_name="td3_final", num_episodes=3):
     
     # Plot 3: Speed vs Throttle (phase plot)
     # Take first episode for cleaner visualization
-    state, _ = env.reset()
-    episode_speeds = [state[0]]
-    episode_throttles = []
+    # state, _ = env.reset()
+    # episode_speeds = [state[0]]
+    # episode_throttles = []
     
-    step = 0
-    while True:
-        action = agent.select_action(np.array(state), add_noise=False)
-        next_state, reward, terminated, truncated, _ = env.step(action)
+    # step = 0
+    # while True:
+    #     action = agent.select_action(np.array(state), add_noise=False)
+    #     next_state, reward, terminated, truncated, _ = env.step(action)
         
-        episode_speeds.append(next_state[0])
-        episode_throttles.append(action[0])
+    #     episode_speeds.append(next_state[0])
+    #     episode_throttles.append(action[0])
         
-        state = next_state
-        step += 1
+    #     state = next_state
+    #     step += 1
         
-        if terminated or truncated:
-            break
+    #     if terminated or truncated:
+    #         break
     
-    # Color by time progression
-    time_colors = np.linspace(0, 1, len(episode_throttles))
-    scatter = axes[1, 0].scatter(episode_speeds[:-1], episode_throttles, c=time_colors, 
-                                cmap='viridis', s=20, alpha=0.7)
-    axes[1, 0].axhline(y=0, color='black', linestyle='--', alpha=0.7)
-    axes[1, 0].axvline(x=env.target_speed, color='red', linestyle='--', alpha=0.7)
-    axes[1, 0].set_xlabel('Speed (m/s)')
-    axes[1, 0].set_ylabel('Throttle Action')
-    axes[1, 0].set_title('Speed vs Throttle (colored by time)')
-    axes[1, 0].grid(True, alpha=0.3)
-    plt.colorbar(scatter, ax=axes[1, 0], label='Time Progress')
+    # # Color by time progression
+    # time_colors = np.linspace(0, 1, len(episode_throttles))
+    # scatter = axes[1, 0].scatter(episode_speeds[:-1], episode_throttles, c=time_colors, 
+    #                             cmap='viridis', s=20, alpha=0.7)
+    # axes[1, 0].axhline(y=0, color='black', linestyle='--', alpha=0.7)
+    # axes[1, 0].axvline(x=env.target_speed, color='red', linestyle='--', alpha=0.7)
+    # axes[1, 0].set_xlabel('Speed (m/s)')
+    # axes[1, 0].set_ylabel('Throttle Action')
+    # axes[1, 0].set_title('Speed vs Throttle (colored by time)')
+    # axes[1, 0].grid(True, alpha=0.3)
+    # plt.colorbar(scatter, ax=axes[1, 0], label='Time Progress')
     
     # Plot 4: Road elevation and throttle over distance
     ax1 = axes[1, 1]
@@ -155,13 +155,22 @@ def plot_speed_throttle_trajectory(model_name="td3_final", num_episodes=3):
 
     # Plot throttle against traveled distance (right axis)
     # Use positions[1:] to align with throttle actions taken at each step
-    line2 = ax2.plot(positions[1:], throttles, color='tab:red', linewidth=2, label='Throttle')
+    line2 = ax2.plot(positions[1:], throttles, color='tab:red', linewidth=1, alpha=0.6, label='Throttle (raw)')
+    
+    # Add smoothed throttle line for better trend visibility
+    if len(throttles) > 10:  # Only smooth if we have enough data points
+        window_size = min(20, len(throttles) // 4)  # Adaptive window size
+        throttle_smooth = np.convolve(throttles, np.ones(window_size)/window_size, mode='same')
+        line3 = ax2.plot(positions[1:], throttle_smooth, color='darkred', linewidth=3, label='Throttle (smoothed)')
+    else:
+        line3 = []
+    
     ax2.axhline(y=0, color='black', linestyle='--', alpha=0.7)
     ax2.set_ylabel('Throttle Action', color='tab:red')
     ax2.tick_params(axis='y', labelcolor='tab:red')
 
     # Combined legend
-    lines = line1 + line2
+    lines = line1 + line2 + line3
     labels = [l.get_label() for l in lines]
     ax1.legend(lines, labels, loc='upper right')
 
@@ -272,7 +281,7 @@ if __name__ == "__main__":
     print("Generating speed-throttle trajectory plots...")
     
     # Multi-episode trajectory analysis
-    speeds, throttles, times = plot_speed_throttle_trajectory("td3_final", num_episodes=3)
+    speeds, throttles, times = plot_speed_throttle_trajectory("td3_final", num_episodes=1   )
     
     # Detailed single episode analysis
     print("\nGenerating detailed single episode analysis...")
