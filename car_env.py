@@ -33,7 +33,7 @@ class CarThrottleEnv(gym.Env):
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
 
         # Fuel usage penalty settings (only positive throttle consumes fuel)
-        self.fuel_penalty_coeff = 8  # penalty per unit fuel used
+        self.fuel_penalty_coeff = 20.0  # penalty per unit fuel used (reduced to encourage efficiency)
         self.total_fuel_used = 0.0
 
     def reset(self, seed=None, options=None):
@@ -75,16 +75,16 @@ class CarThrottleEnv(gym.Env):
         self.total_fuel_used += fuel_used
         
         # Base reward for maintaining target speed (higher is better)
-        if speed_error < 1.0:  # Very close to target
-            reward = 10.0 - speed_error # ~10
-        elif speed_error < 3.0:  # Reasonably close
-            reward = 5.0 - speed_error  # ~5
+        # More tolerant of strategic speed variations for momentum-based driving
+        if speed_error < 2.0:  # Expanded tolerance zone for close to target
+            reward = 10.0 - speed_error * 0.5  # ~10,  Gentler penalty for small deviations
+        elif speed_error < 5.0:  # Expanded reasonably close zone  
+            reward = 7.0 - speed_error  # ~2-5
         else:  # Far from target
-            reward = -speed_error * 4.0
+            reward = -speed_error * 2.0  # Reduced harsh penalty (was 4.0)
 
-  
-        # reward -= self.fuel_penalty_coeff * fuel_used
-        # reward -= -0.5 *0.5 * [-1,1] -> [-4,4]
+        # Enable fuel penalty to encourage efficient momentum-based driving
+        reward -= self.fuel_penalty_coeff * fuel_used
 
 
        

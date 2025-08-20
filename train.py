@@ -26,7 +26,7 @@ def main():
     max_action = float(env.action_space.high[0])
     
     # Training parameters
-    max_episodes = 200
+    max_episodes = 1000
     max_timesteps = 1000
     batch_size = 256
     exploration_noise = 0.2  # Note: policy adds its own noise; this var is informational only
@@ -77,8 +77,9 @@ def main():
             state = next_state
             episode_reward += reward
             
-            # Train agent after collecting enough data
-            if len(replay_buffer) > batch_size:
+            # Train agent after collecting enough data  
+            # Train every 2 steps to allow more diverse experience collection for momentum learning
+            if len(replay_buffer) > batch_size and total_timesteps % 2 == 0:
                 agent.train(replay_buffer, batch_size)
             
             if done:

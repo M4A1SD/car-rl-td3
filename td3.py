@@ -146,7 +146,7 @@ class TD3:
         action = self.actor(state).cpu().data.numpy().flatten()
         
         if add_noise:
-            noise = np.random.normal(0, self.max_action * 0.1, size=action.shape)  # Increased exploration noise
+            noise = np.random.normal(0, self.max_action * 0.3, size=action.shape)  # Slightly increased exploration for momentum discovery
             action = action + noise
             action = np.clip(action, -self.max_action, self.max_action)
             
